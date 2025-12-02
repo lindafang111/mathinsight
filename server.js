@@ -7,10 +7,12 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, '.')));
 
+// 静态首页
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// AI 计划生成函数（保持不变）
 function generatePlan(answers) {
   const { intro = '', goal = '', timePerDay = '', learningStyle = '', finalNote = '' } = answers;
   let output = '';
@@ -279,6 +281,7 @@ function generatePlan(answers) {
   return output;
 }
 
+// API 路由（保持不变）
 app.post('/api/generate-plan', (req, res) => {
   try {
     const { answers } = req.body;
@@ -293,9 +296,5 @@ app.post('/api/generate-plan', (req, res) => {
   }
 });
 
-// ✅ 关键修改：移除 '0.0.0.0'，适配云平台
-const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`✅ MathInsight v13 · 纯建议版启动成功！`);
-  console.log(`   访问: http://localhost:${PORT}`);
-});
+// ✅ 关键修改：移除 app.listen()，改为导出 app
+module.exports = app;
