@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MathInsight · 高数深度教练</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #f9fafb; color: #1e293b; line-height: 1.6; padding: 20px; max-width: 700px; margin: 0 auto; }
+    header { text-align: center; margin: 30px 0 40px; }
+    h1 { font-size: 2.2em; background: linear-gradient(90deg, #4f46e5, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .subtitle { color: #64748b; margin-top: 8px; }
+
+    #chat { 
+      background: white; 
+      border-radius: 16px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03); 
+      padding: 24px; 
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+    .message {
+      margin-bottom: 18px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      max-width: 85%;
+    }
+    .bot { 
+      background: #f1f5f9; 
+      align-self: flex-start; 
+      border-bottom-left-radius: 4px;
+    }
+    .user { 
+      background: #e0e7ff; 
+      align-self: flex-end; 
+      border-bottom-right-radius: 4px;
+      text-align: right;
+    }
+
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 16px;
+      max-width: 85%;
+    }
+    .option-btn {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-btn:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+    .option-btn.selected {
+      background: #e0e7ff;
+      border-color: #4f46e5;
+      color: #4f46e5;
+    }
+
+    #input-area {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    #userInput {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+    #sendBtn {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      width: 80px;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #sendBtn:hover { opacity: 0.9; }
+    #sendBtn:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+    .result { 
+      margin-top: 24px; 
+      padding: 20px; 
+      background: #f8fafc; 
+      border-radius: 12px; 
+      display: none;
+    }
+    .result-content { 
+      font-size: 16px; 
+      line-height: 1.7; 
+    }
+    .result-content strong { color: #4f46e5; font-weight: 600; }
+    .result-content a { color: #7c3aed; text-decoration: underline; }
+    /* 确保不显示 iframe（即使后端误加） */
+    .result-content iframe { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MathInsight</h1>
+    <p class="subtitle">高数学习 · 一对一深度对话</p>
+  </header>
+
+  <div id="chat"></div>
+
+  <div id="input-area">
+    <input type="text" id="userInput" placeholder="点击下方选项，或直接输入..." />
+    <button id="sendBtn">发送</button>
+  </div>
+
+  <div class="result" id="resultBox">
+    <div class="result-content" id="resultContent"></div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        text: "先和我说说：你现在在学高数，最卡住的地方是什么？",
+        options: [
+          "格林公式方向搞不清",
+          "泰勒展开不会用",
+          "极坐标积分限画不出",
+          "隐函数求导混乱",
+          "重积分区域想象困难"
+        ],
+        allowCustom: true,
+        example: "比如：'格林公式绕向总是反的' 或 '泰勒余项不知道怎么处理'"
+      },
+      {
+        text: "你的学习目标是什么？",
+        options: ["期末过关", "考研数学", "真正理解概念", "应付作业"],
+        allowCustom: true
+      },
+      {
+        text: "你每天能投入多少时间？",
+        options: ["<30分钟", "30~60分钟", "1~2小时", "周末集中学"],
+        allowCustom: true
+      },
+      {
+        text: "你更喜欢哪种学习方式？",
+        options: ["看图/动画", "推导公式", "做例题", "听讲解"],
+        allowCustom: true
+      },
+      {
+        text: "最后，有什么特别想告诉我的吗？",
+        options: ["我特别焦虑", "试过很多方法都不行", "讨厌高数", "想真正学懂"],
+        allowCustom: true,
+        example: "比如：'我一看到曲线积分就慌' 或 '我觉得自己不是学数学的料'"
+      }
+    ];
+
+    let answers = [];
+    let step = 0;
+
+    const chatEl = document.getElementById('chat');
+    const inputEl = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const resultBox = document.getElementById('resultBox');
+
+    function addMessage(text, isUser = false) {
+      const msg = document.createElement('div');
+      msg.className = `message ${isUser ? 'user' : 'bot'}`;
+      msg.textContent = text;
+      chatEl.appendChild(msg);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function renderOptions() {
+      const existing = document.querySelector('.options');
+      if (existing) existing.remove();
+
+      const q = questions[step];
+      if (!q.options) return;
+
+      const container = document.createElement('div');
+      container.className = 'options';
+
+      q.options.forEach(opt => {
+        const btn = document.createElement('div');
+        btn.className = 'option-btn';
+        btn.textContent = opt;
+        btn.onclick = () => {
+          document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          inputEl.value = opt;
+          inputEl.focus();
+        };
+        container.appendChild(btn);
+      });
+
+      chatEl.appendChild(container);
+
+      if (q.example) {
+        const hint = document.createElement('div');
+        hint.style.fontSize = '13px';
+        hint.style.color = '#94a3b8';
+        hint.style.marginTop = '4px';
+        hint.textContent = `💡 提示：${q.example}`;
+        chatEl.appendChild(hint);
+      }
+    }
+
+    function askNext() {
+      if (step < questions.length) {
+        const q = questions[step];
+        addMessage(q.text);
+        setTimeout(() => {
+          renderOptions();
+          inputEl.placeholder = q.allowCustom ? "点击选项，或输入自己的答案..." : "请选择...";
+          inputEl.value = '';
+          inputEl.focus();
+        }, 200);
+      } else {
+        submitAnswers();
+      }
+    }
+
+    async function submitAnswers() {
+      sendBtn.disabled = true;
+      inputEl.disabled = true;
+      addMessage("正在为你生成专属高数学习方案，请稍等...");
+
+      try {
+        const res = await fetch('/api/generate-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            answers: {
+              intro: answers[0] || '',
+              goal: answers[1] || '',
+              timePerDay: answers[2] || '',
+              learningStyle: answers[3] || '',
+              finalNote: answers[4] || ''
+            }
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          // ✅ 关键修复：安全地将 Markdown 链接转为可点击超链接
+          let html = data.plan
+            // 转义 HTML 特殊字符（防 XSS）
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            // 恢复需要的格式
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // 转换 [文字](链接) → 安全超链接
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+            .replace(/\n/g, '<br>');
+
+          document.getElementById('resultContent').innerHTML = html;
+          resultBox.style.display = 'block';
+          resultBox.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          addMessage("❌ 生成失败：" + (data.error || "请重试"));
+        }
+      } catch (err) {
+        addMessage("⚠️ 网络错误，请确保 server.js 正在运行");
+      }
+    }
+
+    sendBtn.addEventListener('click', () => {
+      const text = inputEl.value.trim();
+      if (!text && step === 0) {
+        alert("第一个问题很重要，请至少简单描述一下你的困惑 ❤️");
+        return;
+      }
+
+      addMessage(text, true);
+      answers[step] = text;
+      inputEl.value = '';
+      step++;
+
+      const opts = document.querySelector('.options');
+      const hint = chatEl.lastElementChild?.tagName === 'DIV' && 
+                   chatEl.lastElementChild?.style?.fontSize === '13px' 
+                   ? chatEl.lastElementChild : null;
+      if (opts) opts.remove();
+      if (hint) hint.remove();
+
+      setTimeout(() => askNext(), 300);
+    });
+
+    inputEl.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendBtn.click();
+    });
+
+    setTimeout(() => {
+      addMessage("你好呀！我是你的高数学习伙伴 👋");
+      setTimeout(() => askNext(), 500);
+    }, 300);
+  </script>
+</body>
+</html>
