@@ -293,13 +293,9 @@ app.post('/api/generate-plan', (req, res) => {
   }
 });
 
-// 🟢 关键：兼容 Vercel + 本地开发
-if (process.env.VERCEL) {
-  module.exports = app;
-} else {
-  const PORT = process.env.PORT || 3002;
-  app.listen(PORT, () => {
-    console.log(`✅ MathInsight v13 · 纯建议版启动成功！`);
-    console.log(`   访问: http://localhost:${PORT}`);
-  });
-}
+// ✅ 关键修改：移除 '0.0.0.0'，适配云平台
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`✅ MathInsight v13 · 纯建议版启动成功！`);
+  console.log(`   访问: http://localhost:${PORT}`);
+});
