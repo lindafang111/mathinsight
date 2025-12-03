@@ -100,20 +100,8 @@
       line-height: 1.7; 
     }
     .result-content strong { color: #4f46e5; font-weight: 600; }
-    .result-content a { 
-      color: #7c3aed; 
-      text-decoration: underline; 
-      /* ✅ 关键：确保外部链接安全打开 */
-      target: _blank;
-      rel: noopener noreferrer;
-    }
-    /* 防御性：彻底屏蔽任何 iframe / script 注入 */
-    .result-content iframe,
-    .result-content script,
-    .result-content object,
-    .result-content embed {
-      display: none !important;
-    }
+    .result-content a { color: #7c3aed; text-decoration: underline; }
+    .result-content iframe { display: none !important; }
   </style>
 </head>
 <body>
@@ -181,7 +169,6 @@
     function addMessage(text, isUser = false) {
       const msg = document.createElement('div');
       msg.className = `message ${isUser ? 'user' : 'bot'}`;
-      // ✅ 安全：纯文本插入，防 XSS
       msg.textContent = text;
       chatEl.appendChild(msg);
       chatEl.scrollTop = chatEl.scrollHeight;
@@ -243,7 +230,6 @@
       addMessage("正在为你生成专属高数学习方案，请稍等...");
 
       try {
-        // ✅ 关键：使用相对路径 /api/generate-plan → Vercel 自动路由
         const res = await fetch('/api/generate-plan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -257,40 +243,24 @@
             }
           })
         });
-
         const data = await res.json();
-
-        if (res.ok && data.plan) {
-          // ✅ 安全渲染 Markdown 转 HTML（仅允许 a, strong, br）
+        if (res.ok) {
           let html = data.plan
-            // 1. 转义危险字符
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;')
-            // 2. 还原安全标签
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\n/g, '<br>')
-            // 3. 安全转换 [text](url) → 只允许 http/https，且加安全属性
-            .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/gi, 
-              '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+            .replace(/\n/g, '<br>');
 
-          // ✅ 使用 innerHTML 前再做一次防御（可选）
-          const temp = document.createElement('div');
-          temp.innerHTML = html;
-          // 移除任何残留的 script / iframe
-          temp.querySelectorAll('script, iframe, object, embed').forEach(el => el.remove());
-          
-          document.getElementById('resultContent').innerHTML = temp.innerHTML;
+          document.getElementById('resultContent').innerHTML = html;
           resultBox.style.display = 'block';
           resultBox.scrollIntoView({ behavior: 'smooth' });
         } else {
           addMessage("❌ 生成失败：" + (data.error || "请稍后重试"));
         }
       } catch (err) {
-        console.error(err);
-        addMessage("⚠️ 请求失败，请检查网络或稍后再试");
+        addMessage("⚠️ 网络请求失败，请刷新页面重试");
       } finally {
         sendBtn.disabled = false;
         inputEl.disabled = false;
@@ -309,13 +279,12 @@
       inputEl.value = '';
       step++;
 
-      // 清除上一步的选项和提示
       const opts = document.querySelector('.options');
-      const hints = Array.from(chatEl.children).filter(el => 
-        el.style?.fontSize === '13px' && el.style?.color === 'rgb(148, 163, 184)'
-      );
+      const hint = chatEl.lastElementChild?.tagName === 'DIV' && 
+                   chatEl.lastElementChild?.style?.fontSize === '13px' 
+                   ? chatEl.lastElementChild : null;
       if (opts) opts.remove();
-      hints.forEach(h => h.remove());
+      if (hint) hint.remove();
 
       setTimeout(() => askNext(), 300);
     });
@@ -324,7 +293,6 @@
       if (e.key === 'Enter') sendBtn.click();
     });
 
-    // 启动对话
     setTimeout(() => {
       addMessage("你好呀！我是你的高数学习伙伴 👋");
       setTimeout(() => askNext(), 500);
