@@ -1,0 +1,19 @@
+{
+  "name": "math-insight",
+  "version": "1.0.0",
+  "description": "高数学习向导 - 基于用户困惑生成个性化7天学习计划",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "keywords": ["calculus", "learning-plan", "taylor-series", "greens-theorem", "math-education"]
+}
